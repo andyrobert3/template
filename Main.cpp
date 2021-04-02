@@ -2,19 +2,28 @@
 	Name: Matthew Alexander
 	Describe your algorithm and explain your time complexity here:
 
+	Algorithm time complexity O(n^2)
 */
 
 #include <iostream>
 #include <vector> 
 #include <algorithm>
+#include <unordered_map>
+
+#include <math.h> 
 
 using namespace std;
 
-bool reverse_pair(pair<long, long> p1, pair<long, long> p2) {
-	return p1.second < p2.second ? true : p1.second == p2.second ? p1.first < p2.first : false;
+bool sort_pair_via_a(pair<long, long> p1, pair<long, long> p2) {
+	return p1.first < p2.first ? true : p1.first == p2.first ? p1.second < p2.second : false;
 }
 
-void print_array(vector<pair<int, int> > arr) {
+bool reverse_sort_pair_via_b(pair<long, long> p1, pair<long, long> p2) {
+	return p1.second > p2.second ? true : p1.second == p2.second ? p1.first > p2.first : false;
+}
+
+// Prints array of pairs in cleanly, used for debugging purposes
+void print_array_pairs(vector<pair<int, int> > arr) {
 	for (int i = 0; i < arr.size(); i++) {
 		cout << "(" << arr[i].first << ", " << arr[i].second << ")";
 		if (i < arr.size() - 1) {
@@ -24,12 +33,27 @@ void print_array(vector<pair<int, int> > arr) {
 	cout << endl;
 }
 
+// Prints array of integers in cleanly, used for debugging purposes
+void print_array(vector<int> arr) {
+	for (int i = 0; i < arr.size(); i++) {
+		cout << arr[i] << " ";
+	}
+	cout << endl;
+}
+
 int main() {
 	int n;
 	cin >> n;
 	vector<int> a(n), b(n);
-	vector<pair<long,long> > ab(n);
+	vector<pair<long,long> > ab_sorted_a(n), ab_sorted_b(n);
+	vector<pair<int, int> > bounds(n);
 	vector<bool> chosen(n);
+
+	unordered_map<long, int> a_index_mapper;
+
+	// Debugging purposes
+	vector<int> b_values_chosen;
+
 
 	for (int i = 0; i < n; i++) {
 		cin >> a[i];
@@ -39,59 +63,61 @@ int main() {
 	}
 
 	for (int i = 0; i < n; i++) {
-		ab[i] = make_pair(a[i], b[i]);
+		ab_sorted_a[i] = make_pair(a[i], b[i]);
 	}
+
+	copy(ab_sorted_a.begin(), ab_sorted_a.begin() + n, ab_sorted_b.begin());
 
 	long long answer = 0;
 
-	// O( N log N )
-	sort(ab.begin(), ab.end(), reverse_pair);
-	// print_array(ab);
+	// Sort array pairs
+	sort(ab_sorted_a.begin(), ab_sorted_a.end(), sort_pair_via_a);
 
-	// Right pointer
-	for (int i = n - 1; i >= 1; i--) {
-		if (chosen[i]) {
-			continue;
-		}
-
-		// Left pointer
-		int j = 0;
-		bool is_max_b_flag = false;
-
-		pair<long, long> prev_elem = make_pair(0, 0);
-		int prev_elem_idx = 0;
-
-		// Find suitable pair to store current pair in S
-		// If not found, then store suitable pair in S
-		while (j < i) {
-			if (chosen[j]) {
-				j++;
-				continue;
-			}
-
-			// Largest b value is taken
-			if (ab[j].first > ab[i].first) {
-				answer += ab[i].second;
-				is_max_b_flag = true;
-				break;
-			}
-
-			// Take into account "chosen" pairs
-			prev_elem = ab[j];
-			prev_elem_idx = j;
-
-			j++;
-		}	
-
-		chosen[i] = true;
-		if (!is_max_b_flag) {
-			answer += prev_elem.second;
-			chosen[prev_elem_idx] = true;
-		} else {
-			chosen[j] = true;
-		}		
+	// Discover lower & upper bounds for set S
+	for (int i = 0; i < n; i++) {
+		long upper_bound = min(i + 1, n / 2);
+		long lower_bound = min(ceil( ( (float) (i + 1.0) / 2.0 ) ),  n / 2.0 );
+		bounds[i] = make_pair(lower_bound, upper_bound);
+		// a_i is distinct can be used to map
+		a_index_mapper[ab_sorted_a[i].first] = i;
 	}
 
+	// Sort by greatest b (Greedy)
+	sort(ab_sorted_b.begin(), ab_sorted_b.end(), reverse_sort_pair_via_b);
+	// print_array_pairs(bounds);
+
+	// Tackle greedy constraints when sorting by greatest b
+	for (int j = 0; j < n; j++) {
+		int a_j = ab_sorted_b[j].first;
+		int b_j = ab_sorted_b[j].second;
+
+		int curr_pair_idx_in_sorted_a = a_index_mapper[a_j];
+		pair<int, int> bound_j = bounds[j];
+
+		int sum = 0;
+		bool to_add = true;
+
+		for (int k = 0; k < n; k++) {
+			pair<int, int> curr_bound = bounds[k];
+
+			if (k == curr_pair_idx_in_sorted_a || chosen[k] || sum < curr_bound.first) {
+				sum++;
+			} 
+
+			if (sum > curr_bound.second) {
+				to_add = false;
+				break;
+			}
+		}
+
+		if (to_add) {
+			chosen[curr_pair_idx_in_sorted_a] = true;
+			b_values_chosen.push_back(b_j);
+			answer += b_j;
+		}
+	}
+
+	// print_array(b_values_chosen);
 	cout << answer << endl;
 
 	return 0;
